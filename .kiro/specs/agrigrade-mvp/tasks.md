@@ -10,58 +10,58 @@ Rencana implementasi ini menguraikan langkah-langkah pengembangan AgriGrade MVP 
 
 ## Phase 1: Project Setup & Database
 
-- [ ] 1. Setup environment dan konfigurasi proyek
-  - [ ] 1.1 Inisialisasi dependensi: install Tailwind CSS v4, Shadcn UI, Supabase client (`@supabase/supabase-js`, `@supabase/ssr`), Zod, exifr, idb, jspdf, `@vercel/analytics`, `@vercel/speed-insights`
+- [x] 1. Setup environment dan konfigurasi proyek
+  - [x] 1.1 Inisialisasi dependensi: install Tailwind CSS v4, Shadcn UI, Supabase client (`@supabase/supabase-js`, `@supabase/ssr`), Zod, exifr, idb, jspdf, `@vercel/analytics`, `@vercel/speed-insights`
     - Jalankan `npx shadcn@latest init` untuk setup Shadcn UI dengan tema default
     - Pastikan `next.config.ts` dikonfigurasi untuk security headers dan Service Worker static file serving
     - _Requirements: 1.7, 1.8_
-  - [ ] 1.2 Buat file `types/database.ts` dengan TypeScript types lengkap
+  - [x] 1.2 Buat file `types/database.ts` dengan TypeScript types lengkap
     - Definisikan `Grade = 'A' | 'B'`
     - Definisikan interface `Assessment` (14 kolom sesuai skema: id, image_url, grade, confidence, disease, farmer_id, created_at, latitude, longitude, batch_id, is_verified, image_deleted_at, blur_data_url, is_mock_location)
     - Definisikan `AssessmentInsert = Omit<Assessment, 'id' | 'created_at' | 'is_verified'>`
     - Definisikan interface `Price` (id, commodity_name, price_per_kg, unit, updated_at)
     - Definisikan interface `OfflineAssessmentData` (grade, confidence, disease, batch_id, image_url, latitude, longitude, farmer_id, queued_at)
     - _Requirements: 5.1–5.18, 9.1–9.5_
-  - [ ] 1.3 Buat file `lib/supabase/client.ts` (Supabase browser client) dan `lib/supabase/server.ts` (Supabase server client untuk Server Actions dan RSC)
+  - [x] 1.3 Buat file `lib/supabase/client.ts` (Supabase browser client) dan `lib/supabase/server.ts` (Supabase server client untuk Server Actions dan RSC)
     - `client.ts`: gunakan `createBrowserClient` dari `@supabase/ssr`
     - `server.ts`: gunakan `createServerClient` dari `@supabase/ssr` dengan cookie handling Next.js
     - _Requirements: 5.9, 9.6_
-  - [ ] 1.4 Buat file `.env.local` template dengan semua environment variables yang dibutuhkan
+  - [x] 1.4 Buat file `.env.local` template dengan semua environment variables yang dibutuhkan
     - `NEXT_PUBLIC_SUPABASE_URL`
     - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
     - `ADMIN_PASSWORD` (tanpa prefix NEXT_PUBLIC_ — server-only)
     - _Requirements: 10.2_
-  - [ ] 1.5 Buat file `.env.example` untuk portabilitas proyek
+  - [x] 1.5 Buat file `.env.example` untuk portabilitas proyek
     - Salin semua key dari `.env.local` tanpa nilai asli (kosongkan valuenya)
     - Tambahkan komentar singkat di atas setiap key menjelaskan cara mendapatkan nilainya
     - Contoh: `# Dapatkan dari Supabase Dashboard → Project Settings → API`
     - Commit file ini ke Git (tidak mengandung secret); `.env.local` tetap di `.gitignore`
     - _Infrastruktur: memastikan siapa pun yang clone repo tahu persis env vars yang dibutuhkan_
 
-- [ ] 2. Setup skema database Supabase
-  - [ ] 2.1 Buat SQL migration untuk `assessments_table` dengan 14 kolom lengkap
+- [x] 2. Setup skema database Supabase
+  - [x] 2.1 Buat SQL migration untuk `assessments_table` dengan 14 kolom lengkap
     - Kolom: id (UUID PK), image_url (TEXT NOT NULL), grade (TEXT CHECK IN 'A','B'), confidence (FLOAT CHECK 0–1), disease (BOOLEAN DEFAULT false), farmer_id (TEXT NOT NULL), created_at (TIMESTAMPTZ DEFAULT now()), latitude (FLOAT nullable), longitude (FLOAT nullable), batch_id (TEXT UNIQUE nullable), is_verified (BOOLEAN DEFAULT false), image_deleted_at (TIMESTAMPTZ nullable), blur_data_url (TEXT nullable), is_mock_location (BOOLEAN DEFAULT false)
     - _Requirements: 5.1–5.18_
-  - [ ] 2.2 Tambahkan RLS dan indexes pada `assessments_table`
+  - [x] 2.2 Tambahkan RLS dan indexes pada `assessments_table`
     - `ALTER TABLE assessments_table ENABLE ROW LEVEL SECURITY`
     - MVP policy: `CREATE POLICY "mvp_allow_all_assessments" ON assessments_table FOR ALL USING (true) WITH CHECK (true)`
     - Index: `idx_assessments_farmer_id_created_at ON (farmer_id, created_at DESC)`
     - Index: `idx_assessments_is_verified ON (is_verified, created_at DESC)`
     - Sertakan komentar eksplisit bahwa policy MVP HARUS diperketat saat auth diimplementasikan
     - _Requirements: 5.14, 5.15, 5.16_
-  - [ ] 2.3 Buat SQL migration untuk `prices_table` dengan trigger dan seed data
+  - [x] 2.3 Buat SQL migration untuk `prices_table` dengan trigger dan seed data
     - Kolom: id (UUID PK), commodity_name (TEXT NOT NULL), price_per_kg (NUMERIC(12,2) NOT NULL), unit (TEXT DEFAULT 'IDR'), updated_at (TIMESTAMPTZ DEFAULT now())
     - Trigger `prices_updated_at`: auto-update `updated_at` saat row di-UPDATE via fungsi `update_updated_at_column()`
     - RLS: `ALTER TABLE prices_table ENABLE ROW LEVEL SECURITY` + policy `mvp_allow_read_prices` FOR SELECT USING (true)
     - Seed data: Vanili 3.500.000 IDR/kg, Cengkeh 85.000 IDR/kg
     - _Requirements: 9.1–9.7_
-  - [ ] 2.4 Buat Supabase Storage private bucket `commodity-images`
+  - [x] 2.4 Buat Supabase Storage private bucket `commodity-images`
     - Bucket visibility: PRIVATE (bukan public)
     - Path pattern: `{farmer_id}/{assessment_id}.jpg`
     - Max file size: 500KB, MIME type: image/jpeg
     - Dokumentasikan bahwa akses gambar hanya via Signed URLs TTL 3600 detik
     - _Requirements: 6.1, 6.7, 6.9, 6.10_
-  - [ ] 2.5 Simpan seluruh SQL schema ke `supabase/migrations/schema.sql`
+  - [x] 2.5 Simpan seluruh SQL schema ke `supabase/migrations/schema.sql`
     - Gabungkan semua DDL dari task 2.1–2.3 ke satu file: CREATE TABLE assessments_table, CREATE TABLE prices_table, trigger `update_updated_at_column`, semua RLS policies, semua indexes, dan seed data
     - Tambahkan komentar header di file: tanggal dibuat, versi schema, dan instruksi singkat cara apply (`paste ke Supabase SQL Editor`)
     - Commit file ini ke Git sebagai disaster recovery — jika project Supabase dihapus atau akun berganti, seluruh struktur DB bisa dibangun ulang dalam hitungan detik

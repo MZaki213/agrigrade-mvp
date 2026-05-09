@@ -4,6 +4,18 @@
 
 ---
 
+## 📊 Build Progress
+
+| Phase | Status | Deskripsi |
+|---|---|---|
+| **Phase 1** — Project Setup & Database | ✅ Selesai | Dependencies, TypeScript types, Supabase clients, env vars, SQL schema, Storage bucket |
+| **Phase 2** — Core Logic & AI Simulation | 🔄 Berikutnya | Utility libraries, Server Actions, middleware |
+| **Phase 3** — PWA & Offline Feature | ⏳ Belum dimulai | IndexedDB, Service Worker, circuit breaker |
+| **Phase 4** — UI & Accessibility | ⏳ Belum dimulai | Komponen UI, halaman utama, aksesibilitas |
+| **Phase 5** — Final Touches | ⏳ Belum dimulai | Export PDF/CSV, Edge Function cleanup, deployment |
+
+---
+
 ## 🎯 Mengapa AgriGrade?
 
 Sima Arome membutuhkan bahan baku berkualitas tinggi yang **tertelusuri asal-usulnya**. Selama ini, proses grading dilakukan manual di pabrik — lambat, tidak skalabel, dan tidak memberikan data lokasi panen.
@@ -183,19 +195,37 @@ ADMIN_PASSWORD=your-secure-admin-password
 
 ### 3. Setup Database
 
-Buka **Supabase Dashboard → SQL Editor**, paste isi file berikut dan jalankan:
+Buka **Supabase Dashboard → SQL Editor → New Query**, paste isi file berikut dan klik **Run**:
 
 ```
 supabase/migrations/schema.sql
 ```
 
-File ini berisi seluruh DDL: kedua tabel, RLS policies, indexes, trigger `updated_at`, dan seed data harga komoditas.
+File ini berisi seluruh DDL dalam satu file: `assessments_table` (14 kolom), `prices_table`, RLS policies, indexes, trigger `updated_at`, dan seed data harga komoditas (Vanili + Cengkeh).
+
+> 💡 **Alternatif bertahap** — jalankan migration satu per satu jika ingin lebih terkontrol:
+> 1. `001_assessments_table.sql` — CREATE TABLE assessments_table
+> 2. `002_assessments_rls_indexes.sql` — RLS + indexes
+> 3. `003_prices_table.sql` — prices_table + trigger + seed data
 
 ### 4. Setup Storage
 
 Di Supabase Dashboard → Storage:
-- Buat bucket baru bernama `commodity-images`
-- Set visibility ke **Private**
+- Klik **New bucket**
+- Name: `commodity-images`
+- Public bucket: **OFF** (harus private)
+- File size limit: `500000` bytes (500KB)
+- Allowed MIME types: `image/jpeg`
+
+Kemudian tambahkan Storage policy via SQL Editor:
+
+```sql
+CREATE POLICY "mvp_allow_all_storage"
+  ON storage.objects
+  FOR ALL
+  USING (bucket_id = 'commodity-images')
+  WITH CHECK (bucket_id = 'commodity-images');
+```
 
 ### 5. Run Development Server
 
