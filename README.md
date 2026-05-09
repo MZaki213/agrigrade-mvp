@@ -8,7 +8,7 @@
 
 | Phase | Status | Deskripsi |
 |---|---|---|
-| **Phase 1** — Project Setup & Database | ✅ Selesai | Dependencies, TypeScript types, Supabase clients, env vars, SQL schema, Storage bucket |
+| **Phase 1** — Project Setup & Database | ✅ Selesai | Dependencies, TypeScript types, Supabase clients, env vars, SQL schema, Storage bucket, CI/CD pipeline |
 | **Phase 2** — Core Logic & AI Simulation | 🔄 Berikutnya | Utility libraries, Server Actions, middleware |
 | **Phase 3** — PWA & Offline Feature | ⏳ Belum dimulai | IndexedDB, Service Worker, circuit breaker |
 | **Phase 4** — UI & Accessibility | ⏳ Belum dimulai | Komponen UI, halaman utama, aksesibilitas |

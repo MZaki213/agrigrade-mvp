@@ -73,7 +73,7 @@ Rencana implementasi ini menguraikan langkah-langkah pengembangan AgriGrade MVP 
     - Steps: checkout, setup Node.js, install dependencies, run lint (`next lint`), run type check (`tsc --noEmit`), run tests (`vitest --run`)
     - _Requirements: (infrastruktur)_
 
-- [ ] 4. Checkpoint Phase 1 — Pastikan semua tes lulus, tanyakan kepada user jika ada pertanyaan.
+- [x] 4. Checkpoint Phase 1 — Pastikan semua tes lulus, tanyakan kepada user jika ada pertanyaan.
 
 ---
 
