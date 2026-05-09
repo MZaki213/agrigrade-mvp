@@ -1,0 +1,452 @@
+{
+  "project_metadata": {
+    "name": "AgriGrade",
+    "version": "1.0.0-mvp",
+    "description": "Platform kurasi hasil tani berbasis mobile-first untuk penilaian kualitas komoditas (Vanili, Cengkeh) secara mandiri oleh petani, menyuplai data ke perusahaan fragrance Sima Arome.",
+    "target_user": "Petani komoditas (Vanili, Cengkeh) di lapangan",
+    "business_partner": "Sima Arome (perusahaan fragrance)",
+    "language": "Bahasa Indonesia",
+    "phase": "MVP"
+  },
+
+  "tech_stack": {
+    "framework": "Next.js App Router (v16+)",
+    "runtime": "React 19",
+    "styling": "Tailwind CSS v4",
+    "ui_components": "Shadcn UI",
+    "database": "Supabase (PostgreSQL)",
+    "storage": "Supabase Storage (private bucket)",
+    "pwa_tools": {
+      "manifest": "app/manifest.ts (MetadataRoute.Manifest)",
+      "service_worker": "public/sw.js",
+      "offline_queue": "IndexedDB via idb library",
+      "background_sync": "Service Worker Background Sync API"
+    },
+    "validation": "Zod",
+    "testing": "Vitest + fast-check (property-based testing)",
+    "monitoring": ["@vercel/analytics", "@vercel/speed-insights"],
+    "ci_cd": "GitHub Actions → Vercel",
+    "key_libraries": {
+      "exif_extraction": "exifr",
+      "pdf_export": "jspdf",
+      "csv_export": "native Blob API (gunakan URL.createObjectURL() dan <a> element download)",
+      "indexeddb_wrapper": "idb"
+    }
+  },
+
+  "feature_definitions": [
+    {
+      "id": "REQ-01",
+      "name": "Dashboard Petani",
+      "route": "/",
+      "component_type": "Server Component",
+      "user_story": "Sebagai petani, saya ingin melihat dashboard yang menampilkan harga komoditas terkini dan riwayat scan saya.",
+      "acceptance_criteria": [
+        "Dapat diakses tanpa autentikasi pada fase MVP",
+        "Menampilkan harga komoditas (Vanili, Cengkeh) dari Prices_Table — TIDAK hardcode",
+        "Menampilkan riwayat scan diurutkan descending by created_at",
+        "Pesan 'Belum ada riwayat scan' jika kosong",
+        "Tombol navigasi ke /scan",
+        "Warna primer #16a34a, latar #ffffff",
+        "Layout mobile-first max-width 480px",
+        "Tombol 'Ekspor Riwayat' untuk unduh CSV semua riwayat scan",
+        "Indikator jumlah item di Offline_Queue yang belum tersinkronisasi"
+      ]
+    },
+    {
+      "id": "REQ-02",
+      "name": "Halaman Kamera (Scan Komoditas)",
+      "route": "/scan",
+      "component_type": "Client Component",
+      "user_story": "Sebagai petani, saya ingin mengambil foto komoditas langsung dari kamera smartphone saya.",
+      "acceptance_criteria": [
+        "Input: <input type='file' accept='image/*' capture='environment'>",
+        "Pratinjau gambar sebelum analisis",
+        "Tombol 'Analisis Sekarang' aktif hanya setelah gambar dipilih",
+        "Animasi loading saat analisis berlangsung",
+        "Kirim gambar ke AI_Analyzer via Server Action",
+        "Navigate ke /result setelah analisis selesai",
+        "Tampilkan pesan error deskriptif jika gagal",
+        "GPS diambil real-time via getCurrentPosition() SAAT tombol ditekan — bukan dari cache",
+        "Jika GPS gagal/ditolak: lanjutkan dengan latitude=null, longitude=null, set is_mock_location=true",
+        "EXIF validation: ekstrak DateTimeOriginal, tampilkan warning non-blocking jika foto >24 jam",
+        "Jika EXIF tidak tersedia: lanjutkan tanpa warning",
+        "Circuit breaker: jika Server Action tidak respons dalam 10 detik → simpan ke Offline_Queue, notifikasi 'Koneksi lambat'",
+        "Kompresi gambar di browser sebelum upload (max 500KB, pertahankan aspect ratio)",
+        "Tampilkan ukuran file hasil kompresi sebelum analisis",
+        "Generate blur_data_url (base64 8x8px) dari gambar yang dikompres",
+        "Haptic: vibrateSuccess() saat sukses, vibrateError() saat error"
+      ]
+    },
+    {
+      "id": "REQ-03",
+      "name": "Fungsi Analisis AI (Simulasi)",
+      "component_type": "Server Action",
+      "file": "app/actions/analyze.ts",
+      "user_story": "Sebagai sistem, saya ingin fungsi analisis gambar server-side yang mensimulasikan penilaian kualitas AI.",
+      "acceptance_criteria": [
+        "Berjalan sepenuhnya di sisi server (Server Action)",
+        "Delay 2000ms untuk simulasi pemrosesan",
+        "Return: { grade: 'A' | 'B', confidence: number, disease: boolean }",
+        "grade: acak 'A' atau 'B'",
+        "confidence: acak antara 0.80 dan 0.99",
+        "disease: acak boolean",
+        "Setelah return: simpan record Assessment baru ke Assessments_Table"
+      ]
+    },
+    {
+      "id": "REQ-04",
+      "name": "Halaman Hasil Scan",
+      "route": "/result",
+      "component_type": "Client Component",
+      "user_story": "Sebagai petani, saya ingin melihat hasil penilaian kualitas komoditas beserta lokasi pabrik terdekat.",
+      "acceptance_criteria": [
+        "Baca data dari sessionStorage (dikirim dari scan page)",
+        "Tampilkan Grade ('A'/'B') dengan visual menonjol",
+        "Grade A: badge hijau; Grade B: badge kuning",
+        "Tampilkan Confidence sebagai persentase: Math.round(confidence * 100) + '%'",
+        "Tampilkan Disease: 'Terdeteksi Penyakit' jika true, 'Sehat' jika false",
+        "Factory_Map: embed peta lokasi pabrik Sima Arome (Google Maps iframe)",
+        "Tampilkan Batch ID (Kode Karung) dengan visual menonjol",
+        "Tombol 'Salin Kode': salin Batch ID ke clipboard, konfirmasi 'Tersalin!' selama 2000ms",
+        "Tombol 'Unduh Laporan': generate PDF via jspdf (client-side)",
+        "Tombol 'Scan Lagi' → /scan",
+        "Tombol 'Kembali ke Dashboard' → /",
+        "Jika EXIF DateTimeOriginal tersedia: tampilkan 'Waktu Pengambilan Foto'",
+        "Haptic: vibrateSuccess() saat halaman dimuat dengan data sukses"
+      ]
+    },
+    {
+      "id": "REQ-05",
+      "name": "Skema Database Assessments",
+      "component_type": "Database Table",
+      "user_story": "Sebagai sistem, saya ingin menyimpan setiap hasil scan ke database.",
+      "acceptance_criteria": [
+        "Query assessments berdasarkan farmer_id, ordered by created_at DESC",
+        "Gunakan Supabase server client untuk semua operasi",
+        "RLS di-enable sejak awal",
+        "MVP RLS policy: izinkan semua operasi (diperketat saat auth diimplementasikan)",
+        "Future RLS policy: batasi akses berdasarkan farmer_id = auth.uid()"
+      ]
+    },
+    {
+      "id": "REQ-06",
+      "name": "Penyimpanan Gambar dengan Supabase Storage",
+      "component_type": "Storage",
+      "user_story": "Sebagai sistem, saya ingin menyimpan file gambar di Supabase Storage dengan aman dan efisien.",
+      "acceptance_criteria": [
+        "Bucket: commodity-images (PRIVATE — bukan public)",
+        "Path: {farmer_id}/{assessment_id}.jpg",
+        "Akses gambar via Signed URLs TTL 3600 detik (1 jam)",
+        "Kompresi di client sebelum upload (max 500KB)",
+        "Jika upload gagal: tampilkan error, JANGAN lanjutkan analisis AI",
+        "Jika image_url === '[DELETED]': tampilkan placeholder 'Gambar tidak tersedia'"
+      ]
+    },
+    {
+      "id": "REQ-07",
+      "name": "Batch ID dan Traceability",
+      "component_type": "Utility + UI",
+      "user_story": "Sebagai petani, saya ingin mendapatkan kode Batch ID unik setelah scan sukses.",
+      "acceptance_criteria": [
+        "Generate Batch ID format: AG-{YYYYMMDD}-{6 karakter alfanumerik huruf kapital}",
+        "Contoh: AG-20250715-X4K9MZ",
+        "Tampilkan di Result Page dengan visual menonjol",
+        "Tombol 'Salin Kode' dengan konfirmasi visual 2000ms",
+        "Simpan ke kolom batch_id di Assessments_Table (unique constraint)",
+        "Tampilkan di setiap item riwayat scan di Dashboard",
+        "Admin dapat search assessment berdasarkan Batch ID di /admin/verify"
+      ]
+    },
+    {
+      "id": "REQ-08",
+      "name": "PWA dan Kemampuan Offline",
+      "component_type": "PWA",
+      "user_story": "Sebagai petani, saya ingin aplikasi tetap dapat digunakan di area dengan sinyal lemah.",
+      "acceptance_criteria": [
+        "Memenuhi kriteria PWA (dapat diinstal di home screen)",
+        "manifest.json: name, short_name, icons, start_url, display: standalone, theme_color",
+        "Service Worker: cache aset statis (HTML, CSS, JS)",
+        "Offline: simpan Assessment ke IndexedDB Offline_Queue",
+        "Notifikasi: 'Data tersimpan lokal, akan diunggah otomatis saat sinyal kembali'",
+        "Background Sync: upload otomatis saat online kembali",
+        "Sync tag: 'agrigrade-assessment-sync'",
+        "Retry max 3x dengan exponential backoff (1s, 2s, 4s)",
+        "Setelah 3x gagal: notifikasi upload manual",
+        "Dashboard: tampilkan indikator jumlah item pending di Offline_Queue"
+      ]
+    },
+    {
+      "id": "REQ-09",
+      "name": "Skema Database Prices",
+      "component_type": "Database Table",
+      "user_story": "Sebagai sistem, saya ingin menyimpan harga komoditas di database agar dapat diperbarui tanpa deploy ulang.",
+      "acceptance_criteria": [
+        "Harga diambil dari Prices_Table — TIDAK hardcode di UI",
+        "Cache dengan unstable_cache, tag 'prices', revalidate 3600 detik",
+        "Saat admin update harga: panggil revalidateTag('prices')",
+        "Seed data: Vanili 3.500.000 IDR/kg, Cengkeh 85.000 IDR/kg"
+      ]
+    },
+    {
+      "id": "REQ-10",
+      "name": "Halaman Admin Verifikasi",
+      "route": "/admin/verify",
+      "component_type": "Client Component",
+      "user_story": "Sebagai admin pabrik Sima Arome, saya ingin memverifikasi dan mengkoreksi grade hasil analisis AI.",
+      "acceptance_criteria": [
+        "Dilindungi Next.js Middleware (cookie agrigrade_admin_session)",
+        "Login via /admin/login dengan ADMIN_PASSWORD dari env variable",
+        "Tampilkan daftar Assessment is_verified=false, ordered by created_at DESC",
+        "Tampilkan: gambar (via Signed URL), grade AI, confidence, batch_id, farmer_id",
+        "Badge/ikon untuk assessment dengan is_mock_location=true",
+        "Search bar: cari assessment berdasarkan Batch ID (exact match)",
+        "Tombol 'Verifikasi Grade A': set is_verified=true, grade tidak berubah",
+        "Tombol 'Turunkan ke Grade B': set is_verified=true, grade='B'",
+        "Setelah verifikasi: hapus item dari daftar tanpa reload halaman"
+      ]
+    },
+    {
+      "id": "REQ-11",
+      "name": "Lokalisasi dan Aksesibilitas Lapangan",
+      "component_type": "UI/UX",
+      "user_story": "Sebagai petani di lapangan terbuka, saya ingin aplikasi mudah dibaca di bawah sinar matahari.",
+      "acceptance_criteria": [
+        "Bahasa Indonesia sebagai bahasa utama di seluruh UI",
+        "Terjemahan istilah teknis: Confidence→'Tingkat Keakuratan', Grade→'Kelas Mutu', Disease→'Status Kesehatan', Batch ID→'Kode Karung'",
+        "High Contrast Mode: toggle di Dashboard, simpan ke localStorage key 'agrigrade_high_contrast'",
+        "High Contrast aktif: teks #000000, bg #ffffff, interaktif #fbbf24, font min 16px",
+        "Apply class 'high-contrast' ke <html> sebelum first paint (cegah FOUC)",
+        "Touch target minimal 48x48px untuk semua elemen interaktif",
+        "Semua gambar/ikon memiliki atribut alt dalam Bahasa Indonesia"
+      ]
+    },
+    {
+      "id": "REQ-12",
+      "name": "Ekspor Data dan Laporan Mandiri Petani",
+      "component_type": "Client-Side Export",
+      "user_story": "Sebagai petani, saya ingin mengekspor ringkasan hasil scan sebagai bukti kualitas.",
+      "acceptance_criteria": [
+        "Result Page: tombol 'Unduh Laporan' → PDF via jspdf (client-side)",
+        "PDF berisi: header AgriGrade, Kode Karung, Kelas Mutu, Tingkat Keakuratan, Status Kesehatan, tanggal scan",
+        "Dashboard: tombol 'Ekspor Riwayat' → CSV via native Blob API",
+        "CSV kolom: batch_id, grade, confidence, disease, created_at, latitude, longitude, image_url",
+        "Generate sepenuhnya di browser — data TIDAK dikirim ke server",
+        "Nama file deskriptif: agrigrade-laporan-{batch_id}.pdf atau agrigrade-riwayat-{YYYYMMDD}.csv"
+      ]
+    }
+  ],
+
+  "database_schema": {
+    "assessments_table": {
+      "description": "Menyimpan semua hasil scan komoditas oleh petani",
+      "rls_enabled": true,
+      "mvp_policy": "allow all operations (diperketat saat auth diimplementasikan)",
+      "future_policy": "USING (auth.uid()::text = farmer_id)",
+      "indexes": [
+        "idx_assessments_farmer_id_created_at ON (farmer_id, created_at DESC)",
+        "idx_assessments_is_verified ON (is_verified, created_at DESC)"
+      ],
+      "columns": [
+        { "name": "id", "type": "UUID", "constraints": "PRIMARY KEY DEFAULT gen_random_uuid()" },
+        { "name": "image_url", "type": "TEXT", "constraints": "NOT NULL", "note": "Sentinel '[DELETED]' jika gambar dihapus cleanup job" },
+        { "name": "grade", "type": "TEXT", "constraints": "NOT NULL CHECK (grade IN ('A', 'B'))" },
+        { "name": "confidence", "type": "FLOAT", "constraints": "NOT NULL CHECK (confidence >= 0 AND confidence <= 1)" },
+        { "name": "disease", "type": "BOOLEAN", "constraints": "NOT NULL DEFAULT false" },
+        { "name": "farmer_id", "type": "TEXT", "constraints": "NOT NULL", "mvp_value": "farmer_mvp_001" },
+        { "name": "created_at", "type": "TIMESTAMPTZ", "constraints": "NOT NULL DEFAULT now()" },
+        { "name": "latitude", "type": "FLOAT", "constraints": "nullable", "note": "null jika GPS tidak tersedia" },
+        { "name": "longitude", "type": "FLOAT", "constraints": "nullable", "note": "null jika GPS tidak tersedia" },
+        { "name": "batch_id", "type": "TEXT", "constraints": "UNIQUE nullable", "format": "AG-{YYYYMMDD}-{6 uppercase alphanumeric}" },
+        { "name": "is_verified", "type": "BOOLEAN", "constraints": "NOT NULL DEFAULT false", "note": "Diisi admin pabrik" },
+        { "name": "image_deleted_at", "type": "TIMESTAMPTZ", "constraints": "nullable", "note": "Diisi cleanup job saat gambar dihapus" },
+        { "name": "blur_data_url", "type": "TEXT", "constraints": "nullable", "note": "Base64 thumbnail 8x8px untuk blur-up placeholder" },
+        { "name": "is_mock_location", "type": "BOOLEAN", "constraints": "NOT NULL DEFAULT false", "note": "true jika GPS gagal/ditolak saat scan" }
+      ]
+    },
+    "prices_table": {
+      "description": "Menyimpan harga komoditas terkini — sumber data dinamis untuk Dashboard",
+      "rls_enabled": true,
+      "mvp_policy": "allow SELECT for all",
+      "trigger": "auto-update updated_at on row UPDATE",
+      "seed_data": [
+        { "commodity_name": "Vanili", "price_per_kg": 3500000, "unit": "IDR" },
+        { "commodity_name": "Cengkeh", "price_per_kg": 85000, "unit": "IDR" }
+      ],
+      "columns": [
+        { "name": "id", "type": "UUID", "constraints": "PRIMARY KEY DEFAULT gen_random_uuid()" },
+        { "name": "commodity_name", "type": "TEXT", "constraints": "NOT NULL" },
+        { "name": "price_per_kg", "type": "NUMERIC(12,2)", "constraints": "NOT NULL" },
+        { "name": "unit", "type": "TEXT", "constraints": "NOT NULL DEFAULT 'IDR'" },
+        { "name": "updated_at", "type": "TIMESTAMPTZ", "constraints": "NOT NULL DEFAULT now()", "note": "Auto-updated via trigger" }
+      ]
+    },
+    "storage": {
+      "bucket_name": "commodity-images",
+      "visibility": "PRIVATE",
+      "access_method": "Supabase Signed URLs",
+      "signed_url_ttl_seconds": 3600,
+      "path_pattern": "{farmer_id}/{assessment_id}.jpg",
+      "max_file_size_kb": 500,
+      "mime_type": "image/jpeg",
+      "cleanup_policy": {
+        "trigger": "Supabase Edge Function via pg_cron, setiap hari 02:00 UTC",
+        "condition": "is_verified = true AND created_at < NOW() - INTERVAL '3 months'",
+        "action": "Hapus file fisik di Storage; set image_url='[DELETED]'; set image_deleted_at=NOW()",
+        "important": "Record di assessments_table TIDAK PERNAH dihapus — tetap ada untuk audit trail dan laporan tahunan"
+      }
+    },
+    "indexeddb": {
+      "db_name": "agrigrade-offline",
+      "db_version": 1,
+      "store_name": "offline_queue",
+      "key": "auto-increment integer",
+      "purpose": "Menyimpan Assessment sementara saat offline atau circuit breaker timeout"
+    }
+  },
+
+  "technical_constraints": {
+    "max_image_size_kb": 500,
+    "image_compression": {
+      "algorithm": "Canvas API iterative quality reduction",
+      "initial_quality": 0.9,
+      "quality_step": 0.1,
+      "target_size_kb": 500,
+      "preserve_aspect_ratio": true,
+      "blur_placeholder": "Canvas 8x8px base64 via generateBlurDataUrl()"
+    },
+    "ai_delay_ms": 2000,
+    "ai_output": {
+      "grade": "'A' | 'B' (random)",
+      "confidence": "random float [0.80, 0.99]",
+      "disease": "random boolean"
+    },
+    "batch_id_format": "AG-{YYYYMMDD}-{6 uppercase alphanumeric}",
+    "batch_id_regex": "^AG-\\d{8}-[A-Z0-9]{6}$",
+    "batch_id_example": "AG-20250715-X4K9MZ",
+    "circuit_breaker_timeout_ms": 10000,
+    "background_sync_max_retries": 3,
+    "background_sync_backoff_ms": [1000, 2000, 4000],
+    "background_sync_tag": "agrigrade-assessment-sync",
+    "cache_revalidate": {
+      "prices_tag": "prices",
+      "prices_ttl_seconds": 3600,
+      "assessments_tag": "assessments",
+      "assessments_ttl_seconds": 60
+    },
+    "haptic_feedback": {
+      "success_pattern_ms": 200,
+      "error_pattern_ms": [100, 50, 100],
+      "graceful_degradation": true
+    },
+    "exif_validation": {
+      "field": "DateTimeOriginal",
+      "threshold_hours": 24,
+      "behavior_if_old": "warning non-blocking — petani tetap bisa lanjut",
+      "behavior_if_missing": "lanjutkan tanpa warning"
+    },
+    "touch_target_min_px": 48,
+    "mobile_max_width_px": 480,
+    "high_contrast_localStorage_key": "agrigrade_high_contrast",
+    "admin_session_cookie": "agrigrade_admin_session",
+    "admin_session_cookie_options": "httpOnly: true, secure: true, sameSite: 'strict'",
+    "signed_url_ttl_seconds": 3600,
+    "mvp_farmer_id": "farmer_mvp_001"
+  },
+
+  "security_rules": {
+    "middleware": {
+      "file": "middleware.ts (root project)",
+      "protected_routes": "/admin/:path*",
+      "exception": "/admin/login (tidak memerlukan session)",
+      "check": "cookie 'agrigrade_admin_session' harus ada dan valid",
+      "on_failure": "redirect ke /admin/login"
+    },
+    "admin_auth": {
+      "method": "Simple password check via Server Action verifyAdminPassword()",
+      "password_source": "env variable ADMIN_PASSWORD (server-only, tanpa NEXT_PUBLIC_ prefix)",
+      "on_success": "set httpOnly cookie agrigrade_admin_session",
+      "on_failure": "return { success: false, error: 'Password tidak valid.', code: 'AUTH_ERROR' }"
+    },
+    "zod_validation": {
+      "applies_to": "Semua Server Actions",
+      "analyze_image_schema": {
+        "file": "z.instanceof(File).refine(type starts with 'image/').refine(size <= 512000)",
+        "latitude": "z.number().min(-90).max(90).nullable()",
+        "longitude": "z.number().min(-180).max(180).nullable()"
+      },
+      "batch_id_search_schema": {
+        "batch_id": "z.string().regex(/^AG-\\d{8}-[A-Z0-9]{6}$/)"
+      },
+      "on_failure": "{ success: false, error: '...', code: 'VALIDATION_ERROR' } — TIDAK meneruskan ke logika bisnis",
+      "defense_in_depth": "Kompresi 500KB di client + validasi 500KB di Zod server = dua lapis proteksi"
+    },
+    "rls": {
+      "assessments_table": "ENABLED — MVP policy: allow all; production policy: farmer_id = auth.uid()",
+      "prices_table": "ENABLED — allow SELECT for all"
+    },
+    "image_access": {
+    "bucket_type": "PRIVATE",
+    "access_method": "Supabase Signed URLs TTL 3600s via getSignedImageUrl() Server Action",
+    "reason": "Mencegah URL enumeration attack via predictable path pattern",
+    "fallback": "Jika image_url bernilai '[DELETED]', JANGAN panggil getSignedImageUrl(), langsung kembalikan pesan 'Gambar tidak tersedia'"
+    },
+    "geolocation_anti_fraud": {
+      "rule": "GPS HARUS diambil real-time via getCurrentPosition() SAAT tombol 'Analisis Sekarang' ditekan",
+      "forbidden": "Menggunakan koordinat dari cache atau sesi sebelumnya",
+      "on_gps_failure": "set is_mock_location=true, latitude=null, longitude=null"
+    },
+    "exif_anti_fraud": {
+      "rule": "Ekstrak DateTimeOriginal dari EXIF, bandingkan dengan waktu scan",
+      "threshold": "Selisih > 24 jam → tampilkan warning non-blocking",
+      "note": "Warning saja, tidak memblokir — petani tetap bisa lanjut"
+    },
+    "error_response_format": "discriminated union: { success: true, data: T } | { success: false, error: string, code?: string }",
+    "error_codes": ["VALIDATION_ERROR", "STORAGE_ERROR", "DB_ERROR", "AUTH_ERROR"],
+    "logging": {
+      "format": "[AgriGrade][ActionName] error: ${error.message}",
+      "output": "Vercel Function Logs via lib/logger.ts"
+    }
+  },
+
+  "ui_labels_id": {
+    "confidence": "Tingkat Keakuratan",
+    "grade": "Kelas Mutu",
+    "disease": "Status Kesehatan",
+    "batch_id": "Kode Karung",
+    "grade_a_label": "Kelas Mutu A",
+    "grade_b_label": "Kelas Mutu B",
+    "disease_true": "Terdeteksi Penyakit",
+    "disease_false": "Sehat",
+    "empty_history": "Belum ada riwayat scan",
+    "offline_saved": "Data tersimpan lokal, akan diunggah otomatis saat sinyal kembali",
+    "slow_connection": "Koneksi lambat. Data tersimpan lokal dan akan diunggah otomatis.",
+    "image_deleted": "Gambar tidak tersedia",
+    "copied": "Tersalin!",
+    "analyze_button": "Analisis Sekarang",
+    "scan_again": "Scan Lagi",
+    "back_to_dashboard": "Kembali ke Dashboard",
+    "download_report": "Unduh Laporan",
+    "export_history": "Ekspor Riwayat",
+    "copy_code": "Salin Kode",
+    "verify_grade_a": "Verifikasi Grade A",
+    "downgrade_to_b": "Turunkan ke Grade B",
+    "photo_taken_at": "Waktu Pengambilan Foto"
+  },
+
+  "correctness_properties": [
+    { "id": "P01", "description": "Assessment list selalu terurut descending by created_at", "validates": "REQ-01" },
+    { "id": "P02", "description": "AI Analyzer: grade ∈ {'A','B'}, confidence ∈ [0.80,0.99], disease ∈ boolean", "validates": "REQ-03" },
+    { "id": "P03", "description": "Batch ID selalu cocok regex ^AG-\\d{8}-[A-Z0-9]{6}$", "validates": "REQ-07" },
+    { "id": "P04", "description": "Batch ID unik — tidak ada duplikat dalam 1000 pemanggilan", "validates": "REQ-07" },
+    { "id": "P05", "description": "compressImage() mempertahankan aspect ratio (toleransi ±0.01)", "validates": "REQ-06" },
+    { "id": "P06", "description": "compressImage() menghasilkan file ≤ 500KB untuk input apapun", "validates": "REQ-06" },
+    { "id": "P07", "description": "isPhotoTooOld() return true jika dan hanya jika selisih > 24 jam", "validates": "REQ-02" },
+    { "id": "P08", "description": "Confidence ditampilkan sebagai Math.round(confidence * 100) + '%'", "validates": "REQ-04" },
+    { "id": "P09", "description": "GradeBadge: grade A → CSS green, grade B → CSS yellow (konsisten)", "validates": "REQ-04" },
+    { "id": "P10", "description": "Offline queue round-trip: data yang di-enqueue identik dengan yang di-dequeue", "validates": "REQ-08" },
+    { "id": "P11", "description": "verifyAdminPassword(): hanya ADMIN_PASSWORD yang return true", "validates": "REQ-10" },
+    { "id": "P12", "description": "GPS coords yang dikirim ke Server Action selalu dari getCurrentPosition() terbaru", "validates": "REQ-02" },
+    { "id": "P13", "description": "searchAssessmentByBatchId(): exact match atau null — tidak boleh return record berbeda", "validates": "REQ-07" }
+  ]
+}
