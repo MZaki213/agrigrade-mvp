@@ -67,8 +67,8 @@ Rencana implementasi ini menguraikan langkah-langkah pengembangan AgriGrade MVP 
     - Commit file ini ke Git sebagai disaster recovery — jika project Supabase dihapus atau akun berganti, seluruh struktur DB bisa dibangun ulang dalam hitungan detik
     - _Infrastruktur: portabilitas dan keamanan schema database_
 
-- [ ] 3. Setup CI/CD pipeline
-  - [ ] 3.1 Buat file `.github/workflows/ci.yml` untuk GitHub Actions
+- [x] 3. Setup CI/CD pipeline
+  - [x] 3.1 Buat file `.github/workflows/ci.yml` untuk GitHub Actions
     - Trigger: push ke semua branch dan pull request ke main
     - Steps: checkout, setup Node.js, install dependencies, run lint (`next lint`), run type check (`tsc --noEmit`), run tests (`vitest --run`)
     - _Requirements: (infrastruktur)_
